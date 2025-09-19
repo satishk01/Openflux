@@ -251,15 +251,15 @@ The following coding template will be included in AI prompts:
 --- END TEMPLATE ---
 
 This template will influence:
-• Requirements generation - ensuring functional requirements align with your coding patterns
-• Design document creation - incorporating your architectural preferences  
-• Implementation tasks - following your development practices and conventions
+• Requirements generation - ensuring business requirements align with your technical approach
+• Design document creation - incorporating your architectural patterns and technology choices  
+• Implementation tasks - following your development practices and coding standards
 
 The AI will reference this template when making decisions about:
-- Code organization and structure
-- Naming conventions and patterns
-- Error handling approaches
-- Testing strategies
-- Security considerations
+- Architecture patterns and technology stack
+- System design and component structure
+- Development approaches and methodologies
+- Testing strategies and quality practices
+- Security and performance considerations
 """
         return preview.strip()

@@ -222,15 +222,44 @@ class AIService:
     def generate_requirements(self, description: str, context: Dict = None, coding_template: str = None) -> str:
         """Generate EARS-format requirements from description"""
         system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers. 
-        Generate detailed requirements in EARS format (Easy Approach to Requirements Syntax) based on the provided description.
+        Generate detailed business requirements in EARS format (Easy Approach to Requirements Syntax) based on the provided description.
         
-        Format the requirements as:
-        1. WHEN [event] THEN [system] SHALL [response]
-        2. IF [precondition] THEN [system] SHALL [response]
+        IMPORTANT: Focus on BUSINESS REQUIREMENTS only. Do NOT include any code, technical implementation details, or specific technologies in the requirements. Requirements should describe WHAT the system should do, not HOW it should be implemented.
         
-        Include user stories in the format: "As a [role], I want [feature], so that [benefit]"
-        
-        Be comprehensive and consider edge cases, user experience, and technical constraints."""
+        Format the requirements document exactly like this structure:
+
+        # Requirements Document
+
+        ## Introduction
+        [Brief business overview of the feature/system and its purpose]
+
+        ## Requirements
+
+        ### Requirement 1: [Business Function Name]
+        **User Story:** As a [role], I want [business capability], so that [business benefit]
+
+        #### Acceptance Criteria
+        1. WHEN [business event] THEN [system] SHALL [business response]
+        2. IF [business condition] THEN [system] SHALL [business behavior]
+        3. WHEN [business scenario] AND [condition] THEN [system] SHALL [expected outcome]
+
+        [Continue with more requirements...]
+
+        Focus on:
+        - Business functionality and user needs
+        - User experience and workflows  
+        - Business rules and constraints
+        - Data requirements (what data, not how it's stored)
+        - Integration needs (what systems, not how they connect)
+        - Security and compliance from business perspective
+        - Performance expectations from user perspective
+
+        Avoid:
+        - Specific technologies, frameworks, or programming languages
+        - Database schemas or technical data structures
+        - API endpoints or technical interfaces
+        - Implementation approaches or architectural decisions
+        - Code examples or technical specifications"""
         
         context_str = ""
         if context:
@@ -238,26 +267,67 @@ class AIService:
         
         template_str = ""
         if coding_template and coding_template.strip():
-            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nPlease ensure requirements align with the coding patterns and standards specified above."
+            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nUse this template to understand the technical context, but generate BUSINESS requirements only. The template will be used later for technical design and implementation."
         
-        prompt = f"Generate requirements for: {description}{context_str}{template_str}"
+        prompt = f"Generate business requirements document for: {description}{context_str}{template_str}"
         
         return self.generate_text(prompt, system_prompt)
     
     def create_design(self, requirements: str, codebase: Dict = None, coding_template: str = None) -> str:
         """Create design document from requirements"""
         system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers.
-        Create a comprehensive design document based on the provided requirements.
+        Create a comprehensive technical design document based on the provided requirements.
         
-        Include these sections:
-        - Overview
-        - Architecture (with Mermaid diagrams if applicable)
-        - Components and Interfaces
-        - Data Models
-        - Error Handling
-        - Testing Strategy
-        
-        Be technical and specific, considering best practices and scalability."""
+        Format the design document exactly like this structure:
+
+        # Design Document
+
+        ## Overview
+        [High-level technical summary of the solution approach, architecture style, and key technical decisions]
+
+        ## Architecture
+        [System architecture description with Mermaid diagrams showing components, services, and data flow]
+
+        ```mermaid
+        graph TB
+            [Include relevant architecture diagrams]
+        ```
+
+        ### Service Architecture
+        [Detailed breakdown of services/modules and their responsibilities]
+
+        ## Components and Interfaces
+        [Detailed component breakdown with:]
+        ### 1. [Component Name]
+        **Endpoints/Interfaces:**
+        - Technical interface definitions
+        **Functions/Methods:**
+        - Implementation approach
+        **Responsibilities:**
+        - What this component handles
+
+        ## Data Models
+        [Technical data structures, schemas, and relationships with specific field definitions]
+
+        ## Error Handling
+        [Technical error handling strategies, error codes, response formats]
+
+        ## Testing Strategy
+        [Technical testing approach including unit, integration, and E2E testing]
+
+        ## Deployment and Configuration
+        [Technical deployment considerations, environment setup, configuration management]
+
+        ## Security Considerations
+        [Technical security implementation details, authentication, authorization]
+
+        Be technical and specific, including:
+        - Specific architectural patterns and approaches
+        - Technical component interactions
+        - Data structure definitions
+        - API/interface specifications
+        - Technology-specific implementation details
+        - Performance and scalability considerations"""
         
         codebase_str = ""
         if codebase:
@@ -265,9 +335,9 @@ class AIService:
         
         template_str = ""
         if coding_template and coding_template.strip():
-            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nPlease ensure the design follows the architectural patterns and technical approaches specified above."
+            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nIMPORTANT: Follow the architectural patterns, technologies, frameworks, coding standards, and technical approaches specified in this template. Use the template to guide all technical decisions in the design."
         
-        prompt = f"Create design document for these requirements:\n{requirements}{codebase_str}{template_str}"
+        prompt = f"Create technical design document for these requirements:\n{requirements}{codebase_str}{template_str}"
         
         return self.generate_text(prompt, system_prompt)
     

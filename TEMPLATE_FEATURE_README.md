@@ -33,14 +33,14 @@ The Coding Template Integration feature allows users to define coding patterns, 
 
 ```
 Example Template:
-- Use TypeScript with strict mode enabled
-- Follow clean architecture patterns with separate layers for domain, application, and infrastructure
-- Implement repository pattern for data access
-- Use dependency injection for service management
-- Write unit tests using Jest framework
-- Follow RESTful API design principles
-- Use async/await for asynchronous operations
-- Implement proper error handling with custom exception classes
+- Use serverless architecture with AWS Lambda functions
+- Follow microservices pattern with separate services for each domain
+- Use DynamoDB for data persistence with proper table design
+- Implement RESTful API design with consistent endpoint patterns
+- Follow test-driven development with comprehensive unit and integration tests
+- Use proper error handling with standardized error response formats
+- Implement authentication and authorization for secure access
+- Follow performance best practices for scalable solutions
 ```
 
 3. The system will validate your template and provide feedback

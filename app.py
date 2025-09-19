@@ -373,14 +373,14 @@ def show_spec_generation():
             value=st.session_state.coding_template,
             height=200,
             placeholder="""Example template:
-- Use TypeScript with strict mode enabled
-- Follow clean architecture patterns with separate layers for domain, application, and infrastructure
-- Implement repository pattern for data access
-- Use dependency injection for service management
-- Write unit tests using Jest framework
-- Follow RESTful API design principles
-- Use async/await for asynchronous operations
-- Implement proper error handling with custom exception classes""",
+- Use serverless architecture with AWS Lambda functions
+- Follow microservices pattern with separate services for each domain
+- Use DynamoDB for data persistence with proper table design
+- Implement RESTful API design with consistent endpoint patterns
+- Follow test-driven development with comprehensive unit and integration tests
+- Use proper error handling with standardized error response formats
+- Implement authentication and authorization for secure access
+- Follow performance best practices for scalable solutions""",
             help="Describe your coding patterns, architectural preferences, naming conventions, testing approaches, and any other standards that should influence the generated specifications."
         )
         
@@ -445,7 +445,7 @@ def show_spec_generation():
                 
                 with st.spinner("🧠 Generating requirements document..."):
                     try:
-                        requirements = st.session_state.ai_service.generate_requirements(
+                        requirements = st.session_state.spec_engine.create_requirements(
                             feature_description, 
                             codebase_context,
                             coding_template if coding_template.strip() else None
@@ -538,7 +538,7 @@ def show_spec_generation():
         with st.spinner("🧠 Creating design document based on requirements..."):
             try:
                 codebase_context = st.session_state.loaded_files if st.session_state.loaded_files else None
-                design = st.session_state.ai_service.create_design(
+                design = st.session_state.spec_engine.generate_design(
                     workflow_state['requirements_content'],
                     codebase_context,
                     workflow_state.get('coding_template', '') if workflow_state.get('coding_template', '').strip() else None

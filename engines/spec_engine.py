@@ -92,7 +92,7 @@ Focus on:
 Make the requirements specific, testable, and implementable."""
 
         try:
-            return self.ai_service.generate_text(requirements_prompt, self.openflux_system_prompt)
+            return self.ai_service.generate_requirements(feature_description, None, coding_template)
         except Exception as e:
             self.logger.error(f"Requirements generation failed: {e}")
             raise e
@@ -166,7 +166,7 @@ Focus on:
 - Technical implementation details"""
 
         try:
-            return self.ai_service.generate_text(design_prompt, self.openflux_system_prompt)
+            return self.ai_service.create_design(requirements, codebase_context, coding_template)
         except Exception as e:
             self.logger.error(f"Design generation failed: {e}")
             raise e
@@ -187,7 +187,7 @@ Coding Template & Standards:
 
 Please ensure all implementation tasks follow the development practices, testing patterns, code organization, and technical standards specified in the template above."""
         
-        tasks_prompt = f"""Convert this design into actionable implementation tasks in Kiro markdown format:
+        tasks_prompt = f"""Convert this design into actionable implementation tasks following the established format:
 
 {design}
 {requirements_context}
@@ -198,45 +198,56 @@ Generate tasks using this EXACT format:
 # Implementation Plan
 
 - [ ] 1. Main task title
-  - [ ] 1.1 Sub-task title
-    - Detailed description of what needs to be implemented
-    - Specific files or components to create/modify
-    - Technical implementation details
-    - _Requirements: 1.1, 2.3_
+  - Create/implement specific components or functionality
+  - Detailed description of what needs to be coded
+  - Specific files, functions, or modules to create/modify
+  - Technical implementation approach
+  - _Requirements: X.X, Y.Y_
 
-  - [ ] 1.2 Another sub-task title
-    - Implementation details
-    - Code changes needed
-    - _Requirements: 2.1_
+- [ ] 2. Second main task title  
+  - [ ] 2.1 Sub-task title
+    - Specific coding task description
+    - Implementation details and approach
+    - Files or components to work on
+    - _Requirements: X.X_
+    
+  - [ ] 2.2 Another sub-task title
+    - Coding implementation details
+    - Technical specifications
+    - _Requirements: X.X_
 
-- [ ] 2. Second main task title
-  - [ ] 2.1 Sub-task for second main task
-    - Implementation details
-    - _Requirements: 3.1_
+- [ ] 3. Third main task title
+  - Implementation description
+  - Technical details
+  - _Requirements: X.X_
 
 IMPORTANT FORMATTING RULES:
-- Use "- [ ]" for unchecked tasks (not "- [x]")
-- Use hierarchical numbering (1, 1.1, 1.2, 2, 2.1, etc.)
+- Use "- [ ]" for unchecked tasks (some tasks may be marked "- [x]" if they represent completed foundation work)
+- Use hierarchical numbering (1, 2, 2.1, 2.2, 3, etc.)
 - Include requirement references as "_Requirements: X.X, Y.Y_"
 - Add detailed implementation descriptions under each task
 - Focus ONLY on coding tasks that involve writing, modifying, or testing code
 - Each task should build incrementally on previous tasks
-- Maximum of 2 levels of hierarchy (main tasks and sub-tasks)
+- Mix of main tasks and sub-tasks as appropriate (not every task needs sub-tasks)
 
 Focus on:
-- Coding tasks that can be executed by developers
-- Test-driven development approach
-- Incremental implementation steps
-- Specific file/component references
-- Building functionality step by step
+- Specific coding implementations (functions, classes, modules)
+- Database/data layer implementation
+- API/interface development
+- Business logic implementation
+- Testing implementation (unit, integration, E2E)
+- Error handling and validation
+- Security implementation
+- Performance optimization
 
 Avoid:
 - User testing or feedback gathering
-- Deployment or infrastructure tasks
+- Deployment or infrastructure setup (unless coding deployment scripts)
 - Business process changes
 - Marketing or communication tasks
+- Manual testing or user acceptance testing
 
-Each task should be concrete enough that a developer can execute it without additional clarification."""
+Each task should be concrete enough that a developer can execute it without additional clarification and should specify exactly what code needs to be written."""
 
         try:
             response = self.ai_service.generate_text(tasks_prompt, self.openflux_system_prompt)
