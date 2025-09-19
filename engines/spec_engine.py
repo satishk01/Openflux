@@ -34,7 +34,7 @@ You talk like a human, not like a bot. You reflect the user's input style in you
 - Include relevant code snippets, CLI commands, or configuration examples
 - Explain your reasoning when making recommendations"""
     
-    def create_requirements(self, feature_description: str, codebase_context: Dict = None) -> str:
+    def create_requirements(self, feature_description: str, codebase_context: Dict = None, coding_template: str = None) -> str:
         """Generate EARS-format requirements from feature description"""
         
         context_info = ""
@@ -47,10 +47,20 @@ Codebase Context:
 - Architecture Insights: {codebase_context.get('analysis', 'No analysis available')[:500]}...
 """
         
+        template_info = ""
+        if coding_template and coding_template.strip():
+            template_info = f"""
+
+Coding Template & Standards:
+{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
+
+Please ensure the requirements align with the coding patterns, architectural preferences, and development standards specified in the template above."""
+        
         requirements_prompt = f"""Generate detailed requirements in EARS format (Easy Approach to Requirements Syntax) for the following feature:
 
 Feature Description: {feature_description}
 {context_info}
+{template_info}
 
 Please format the requirements document with:
 
@@ -87,7 +97,7 @@ Make the requirements specific, testable, and implementable."""
             self.logger.error(f"Requirements generation failed: {e}")
             raise e
     
-    def generate_design(self, requirements: str, codebase_context: Dict = None) -> str:
+    def generate_design(self, requirements: str, codebase_context: Dict = None, coding_template: str = None) -> str:
         """Generate design document from requirements"""
         
         context_info = ""
@@ -100,10 +110,20 @@ Existing Codebase Context:
 - Current Architecture: {codebase_context.get('analysis', 'No analysis available')[:500]}...
 """
         
+        template_info = ""
+        if coding_template and coding_template.strip():
+            template_info = f"""
+
+Coding Template & Standards:
+{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
+
+Please ensure the design follows the architectural patterns, component structures, naming conventions, and technical approaches specified in the template above."""
+        
         design_prompt = f"""Create a comprehensive design document based on these requirements:
 
 {requirements}
 {context_info}
+{template_info}
 
 Please format the design document with these sections:
 
@@ -151,17 +171,27 @@ Focus on:
             self.logger.error(f"Design generation failed: {e}")
             raise e
     
-    def create_task_list(self, design: str, requirements: str = None) -> str:
+    def create_task_list(self, design: str, requirements: str = None, coding_template: str = None) -> str:
         """Generate implementation tasks from design document in Kiro markdown format"""
         
         requirements_context = ""
         if requirements:
             requirements_context = f"\n\nRequirements Context:\n{requirements[:1000]}..."
         
+        template_context = ""
+        if coding_template and coding_template.strip():
+            template_context = f"""
+
+Coding Template & Standards:
+{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
+
+Please ensure all implementation tasks follow the development practices, testing patterns, code organization, and technical standards specified in the template above."""
+        
         tasks_prompt = f"""Convert this design into actionable implementation tasks in Kiro markdown format:
 
 {design}
 {requirements_context}
+{template_context}
 
 Generate tasks using this EXACT format:
 
@@ -215,6 +245,32 @@ Each task should be concrete enough that a developer can execute it without addi
         except Exception as e:
             self.logger.error(f"Task generation failed: {e}")
             raise e
+    
+    def incorporate_template(self, prompt: str, template: str) -> str:
+        """Incorporate coding template into AI prompt"""
+        if not template or not template.strip():
+            return prompt
+        
+        try:
+            # Add template context to the prompt
+            template_section = f"""
+
+CODING TEMPLATE & STANDARDS:
+{template[:1500]}{'...' if len(template) > 1500 else ''}
+
+Please ensure all generated content follows the patterns, conventions, and standards specified in the template above.
+"""
+            
+            # Insert template section before the main prompt instructions
+            if "Please format" in prompt:
+                parts = prompt.split("Please format", 1)
+                return parts[0] + template_section + "\nPlease format" + parts[1]
+            else:
+                return prompt + template_section
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to incorporate template into prompt: {e}")
+            return prompt
     
     def update_document(self, doc_type: str, content: str, version: int = 1) -> bool:
         """Update specification document in session state"""

@@ -219,7 +219,7 @@ class AIService:
             self.logger.error(f"Text generation failed: {e}")
             raise e
     
-    def generate_requirements(self, description: str, context: Dict = None) -> str:
+    def generate_requirements(self, description: str, context: Dict = None, coding_template: str = None) -> str:
         """Generate EARS-format requirements from description"""
         system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers. 
         Generate detailed requirements in EARS format (Easy Approach to Requirements Syntax) based on the provided description.
@@ -236,11 +236,15 @@ class AIService:
         if context:
             context_str = f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
         
-        prompt = f"Generate requirements for: {description}{context_str}"
+        template_str = ""
+        if coding_template and coding_template.strip():
+            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nPlease ensure requirements align with the coding patterns and standards specified above."
+        
+        prompt = f"Generate requirements for: {description}{context_str}{template_str}"
         
         return self.generate_text(prompt, system_prompt)
     
-    def create_design(self, requirements: str, codebase: Dict = None) -> str:
+    def create_design(self, requirements: str, codebase: Dict = None, coding_template: str = None) -> str:
         """Create design document from requirements"""
         system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers.
         Create a comprehensive design document based on the provided requirements.
@@ -259,7 +263,11 @@ class AIService:
         if codebase:
             codebase_str = f"\n\nExisting codebase context:\n{json.dumps(codebase, indent=2)}"
         
-        prompt = f"Create design document for these requirements:\n{requirements}{codebase_str}"
+        template_str = ""
+        if coding_template and coding_template.strip():
+            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nPlease ensure the design follows the architectural patterns and technical approaches specified above."
+        
+        prompt = f"Create design document for these requirements:\n{requirements}{codebase_str}{template_str}"
         
         return self.generate_text(prompt, system_prompt)
     

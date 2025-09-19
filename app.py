@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from services.ai_service import AIService
 from services.file_service import FileService
+from services.template_service import TemplateService
 from engines.spec_engine import SpecEngine
 
 # Configure Streamlit page
@@ -36,8 +37,10 @@ def main():
         st.session_state.jira_config = {}
         st.session_state.ai_service = AIService()
         st.session_state.file_service = FileService()
+        st.session_state.template_service = TemplateService()
         st.session_state.spec_engine = SpecEngine(st.session_state.ai_service)
         st.session_state.model_connected = False
+        st.session_state.coding_template = ""
     
     # Sidebar for navigation and model selection
     with st.sidebar:
@@ -278,6 +281,7 @@ def show_spec_generation():
         st.session_state.spec_workflow_state = {
             'current_phase': 'input',
             'feature_description': '',
+            'coding_template': '',
             'requirements_approved': False,
             'design_approved': False,
             'tasks_approved': False,
@@ -320,7 +324,106 @@ def show_spec_generation():
             help="Provide a comprehensive description of the feature including its purpose, main functionality, and any specific requirements."
         )
         
+        # Coding Template Section
+        st.markdown("---")
+        st.subheader("🔧 Coding Template (Optional)")
+        st.markdown("Define coding patterns, standards, and conventions that should guide the specification generation.")
+        
+        # Template management UI
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            # Load saved templates dropdown
+            saved_templates = st.session_state.template_service.list_templates()
+            template_options = ["None"] + [t['name'] for t in saved_templates]
+            
+            selected_template = st.selectbox(
+                "Load Saved Template",
+                options=template_options,
+                help="Select a previously saved coding template"
+            )
+            
+            if selected_template != "None":
+                template_content = st.session_state.template_service.load_template(selected_template)
+                if template_content:
+                    st.session_state.coding_template = template_content
+        
+        with col2:
+            st.markdown("**Template Actions**")
+            if st.button("🔍 Preview", help="Preview how template will be used"):
+                if st.session_state.coding_template.strip():
+                    preview = st.session_state.template_service.get_template_preview(st.session_state.coding_template)
+                    st.info(preview)
+                else:
+                    st.warning("No template content to preview")
+            
+            # Delete template option
+            if saved_templates and selected_template != "None":
+                if st.button("🗑️ Delete", help=f"Delete template '{selected_template}'"):
+                    if st.session_state.template_service.delete_template(selected_template):
+                        st.success(f"✅ Template '{selected_template}' deleted!")
+                        st.session_state.coding_template = ""
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to delete template")
+        
+        # Template input area
+        coding_template = st.text_area(
+            "Coding Template",
+            value=st.session_state.coding_template,
+            height=200,
+            placeholder="""Example template:
+- Use TypeScript with strict mode enabled
+- Follow clean architecture patterns with separate layers for domain, application, and infrastructure
+- Implement repository pattern for data access
+- Use dependency injection for service management
+- Write unit tests using Jest framework
+- Follow RESTful API design principles
+- Use async/await for asynchronous operations
+- Implement proper error handling with custom exception classes""",
+            help="Describe your coding patterns, architectural preferences, naming conventions, testing approaches, and any other standards that should influence the generated specifications."
+        )
+        
+        # Update session state
+        st.session_state.coding_template = coding_template
+        
+        # Template validation and feedback
+        if coding_template.strip():
+            validation = st.session_state.template_service.validate_template(coding_template)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Characters", validation.character_count)
+            with col2:
+                st.metric("Words", validation.word_count)
+            with col3:
+                color = "🟢" if validation.score >= 80 else "🟡" if validation.score >= 60 else "🔴"
+                st.metric("Quality Score", f"{color} {validation.score}/100")
+            
+            if validation.issues:
+                for issue in validation.issues:
+                    st.error(f"⚠️ {issue}")
+            
+            if validation.suggestions:
+                for suggestion in validation.suggestions:
+                    st.info(f"💡 {suggestion}")
+            
+            # Save template option
+            if validation.is_valid:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    template_name = st.text_input("Template Name", placeholder="Enter name to save template")
+                with col2:
+                    st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
+                    if st.button("💾 Save Template", disabled=not template_name.strip()):
+                        if st.session_state.template_service.save_template(template_name.strip(), coding_template):
+                            st.success(f"✅ Template '{template_name}' saved successfully!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save template")
+        
         # Optional: Include codebase context
+        st.markdown("---")
         include_codebase = st.checkbox(
             "Include current codebase context",
             value=False,
@@ -338,12 +441,14 @@ def show_spec_generation():
         with col1:
             if st.button("🚀 Generate Requirements", type="primary", disabled=not feature_description.strip()):
                 workflow_state['feature_description'] = feature_description
+                workflow_state['coding_template'] = coding_template
                 
                 with st.spinner("🧠 Generating requirements document..."):
                     try:
                         requirements = st.session_state.ai_service.generate_requirements(
                             feature_description, 
-                            codebase_context
+                            codebase_context,
+                            coding_template if coding_template.strip() else None
                         )
                         
                         # Format as proper requirements document
@@ -435,7 +540,8 @@ def show_spec_generation():
                 codebase_context = st.session_state.loaded_files if st.session_state.loaded_files else None
                 design = st.session_state.ai_service.create_design(
                     workflow_state['requirements_content'],
-                    codebase_context
+                    codebase_context,
+                    workflow_state.get('coding_template', '') if workflow_state.get('coding_template', '').strip() else None
                 )
                 
                 # Format as proper design document
@@ -503,7 +609,8 @@ This design document outlines the technical approach for implementing the featur
             try:
                 tasks_md = st.session_state.spec_engine.create_task_list(
                     workflow_state['design_content'],
-                    workflow_state.get('requirements_content', '')
+                    workflow_state.get('requirements_content', ''),
+                    workflow_state.get('coding_template', '') if workflow_state.get('coding_template', '').strip() else None
                 )
                 
                 workflow_state['tasks_content'] = tasks_md
@@ -615,6 +722,7 @@ This design document outlines the technical approach for implementing the featur
                 st.session_state.spec_workflow_state = {
                     'current_phase': 'input',
                     'feature_description': '',
+                    'coding_template': '',
                     'requirements_approved': False,
                     'design_approved': False,
                     'tasks_approved': False,
@@ -622,6 +730,7 @@ This design document outlines the technical approach for implementing the featur
                     'design_content': '',
                     'tasks_content': ''
                 }
+                st.session_state.coding_template = ""
                 st.rerun()
         
         with col2:
@@ -633,7 +742,8 @@ This design document outlines the technical approach for implementing the featur
             'requirements': workflow_state['requirements_content'],
             'design': workflow_state['design_content'],
             'tasks': workflow_state['tasks_content'],
-            'feature_description': workflow_state['feature_description']
+            'feature_description': workflow_state['feature_description'],
+            'coding_template': workflow_state.get('coding_template', '')
         }
 
 def show_diagrams():

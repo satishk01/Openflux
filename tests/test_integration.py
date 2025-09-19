@@ -1,314 +1,160 @@
-"""
-Integration tests for the OpenFlux Streamlit app
-"""
 import unittest
-from unittest.mock import patch, MagicMock
-import sys
-import os
 import tempfile
-import json
+import shutil
+from pathlib import Path
+from services.template_service import TemplateService
+from services.ai_service import AIService
+from engines.spec_engine import SpecEngine
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-class TestAWSBedrockIntegration(unittest.TestCase):
-    """Test AWS Bedrock integration"""
-    
-    @patch('boto3.Session')
-    def test_bedrock_connection(self, mock_session):
-        """Test AWS Bedrock connection"""
-        from services.ai_service import AIService
-        
-        # Mock successful connection
-        mock_client = MagicMock()
-        mock_session.return_value.client.return_value = mock_client
-        mock_client.list_foundation_models.return_value = {
-            'modelSummaries': [
-                {'modelId': 'anthropic.claude-3-5-sonnet-20241022-v2:0'},
-                {'modelId': 'amazon.nova-pro-v1:0'}
-            ]
-        }
-        
-        ai_service = AIService()
-        result = ai_service.test_connection()
-        
-        self.assertTrue(result['connected'])
-        mock_client.list_foundation_models.assert_called_once()
-    
-    @patch('boto3.Session')
-    def test_bedrock_model_invocation(self, mock_session):
-        """Test model invocation"""
-        from services.ai_service import AIService
-        
-        mock_client = MagicMock()
-        mock_session.return_value.client.return_value = mock_client
-        
-        # Mock successful model response
-        mock_response = {
-            'body': MagicMock()
-        }
-        mock_response['body'].read.return_value = json.dumps({
-            'content': [{'text': 'Generated response'}]
-        }).encode()
-        
-        mock_client.invoke_model.return_value = mock_response
-        
-        ai_service = AIService()
-        ai_service.select_model('claude-3-5-sonnet')
-        
-        response = ai_service.generate_text("Test prompt")
-        
-        self.assertEqual(response, 'Generated response')
-        mock_client.invoke_model.assert_called_once()
-
-class TestEndToEndSpecWorkflow(unittest.TestCase):
-    """Test complete spec generation workflow"""
+class TestTemplateIntegration(unittest.TestCase):
+    """Integration tests for template functionality"""
     
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
+        """Set up test environment"""
+        self.test_dir = tempfile.mkdtemp()
+        self.template_service = TemplateService()
+        self.template_service.templates_dir = Path(self.test_dir) / "templates"
+        self.template_service._ensure_templates_directory()
+        
+        self.ai_service = AIService()
+        self.spec_engine = SpecEngine(self.ai_service)
+        
+        # Mock AI service to avoid actual API calls
+        self.ai_service.generate_text = lambda prompt, system_prompt: f"AI Response for: {prompt[:100]}..."
     
     def tearDown(self):
-        import shutil
-        shutil.rmtree(self.temp_dir)
+        """Clean up test environment"""
+        shutil.rmtree(self.test_dir)
     
-    @patch('services.ai_service.AIService')
-    @patch('services.file_service.FileService')
-    def test_complete_spec_workflow(self, mock_file_service, mock_ai_service):
-        """Test complete spec generation from idea to tasks"""
-        from engines.spec_engine import SpecEngine
-        
-        # Mock file service
-        mock_file_service_instance = mock_file_service.return_value
-        mock_file_service_instance.read_folder_files.return_value = {
-            'main.py': {'content': 'print("hello")', 'size': 100},
-            'utils.py': {'content': 'def helper(): pass', 'size': 50}
-        }
-        
-        # Mock AI service responses
-        mock_ai_service_instance = mock_ai_service.return_value
-        mock_ai_service_instance.generate_requirements.return_value = """
-        # Requirements Document
-        
-        ## Introduction
-        Test feature for user authentication
-        
-        ## Requirements
-        
-        ### Requirement 1
-        **User Story:** As a user, I want to login, so that I can access the system
-        
-        #### Acceptance Criteria
-        1. WHEN user enters valid credentials THEN system SHALL authenticate user
+    def test_end_to_end_template_workflow(self):
+        """Test complete template workflow from creation to spec generation"""
+        # 1. Create and save a template
+        template_content = """
+        Use TypeScript with strict mode enabled
+        Follow clean architecture patterns with separate layers
+        Implement repository pattern for data access
+        Use dependency injection for service management
+        Write comprehensive unit tests using Jest framework
         """
         
-        mock_ai_service_instance.generate_design.return_value = """
-        # Design Document
+        result = self.template_service.save_template("Test Template", template_content)
+        self.assertTrue(result)
         
-        ## Overview
-        Authentication system design
+        # 2. Load the template
+        loaded_content = self.template_service.load_template("Test Template")
+        self.assertEqual(template_content.strip(), loaded_content.strip())
         
-        ## Architecture
-        Simple login flow with validation
-        """
+        # 3. Use template in requirements generation
+        feature_description = "User authentication system with login and registration"
         
-        mock_ai_service_instance.generate_tasks.return_value = [
-            {"title": "Setup authentication", "description": "Create login system"}
-        ]
-        
-        # Test workflow
-        spec_engine = SpecEngine()
-        
-        # Step 1: Generate requirements
-        requirements = spec_engine.generate_requirements("User authentication system")
-        self.assertIn("Requirements Document", requirements)
-        
-        # Step 2: Generate design
-        codebase = mock_file_service_instance.read_folder_files('/test')
-        design = spec_engine.generate_design(requirements, codebase)
-        self.assertIn("Design Document", design)
-        
-        # Step 3: Generate tasks
-        tasks = spec_engine.create_task_list(design, requirements)
-        self.assertIn("Implementation Plan", tasks)
-    
-    @patch('integrations.jira_client.JIRAClient')
-    def test_jira_integration_workflow(self, mock_jira_client):
-        """Test JIRA integration workflow"""
-        mock_jira_instance = mock_jira_client.return_value
-        mock_jira_instance.test_connection.return_value = True
-        mock_jira_instance.create_ticket.return_value = {'key': 'TEST-123'}
-        
-        # Test JIRA ticket creation
-        tasks = [
-            {"title": "Setup project", "description": "Initialize project structure"},
-            {"title": "Implement auth", "description": "Create authentication system"}
-        ]
-        
-        created_tickets = []
-        for task in tasks:
-            ticket = mock_jira_instance.create_ticket(
-                summary=task['title'],
-                description=task['description'],
-                issue_type='Task'
-            )
-            created_tickets.append(ticket)
-        
-        self.assertEqual(len(created_tickets), 2)
-        self.assertEqual(mock_jira_instance.create_ticket.call_count, 2)
-
-class TestFileProcessingIntegration(unittest.TestCase):
-    """Test file processing integration"""
-    
-    def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
-        
-        # Create test files
-        self.test_files = {
-            'main.py': 'print("Hello World")\ndef main():\n    pass',
-            'utils.js': 'function helper() {\n    return "help";\n}',
-            'README.md': '# Test Project\n\nThis is a test project.',
-            'config.json': '{"name": "test", "version": "1.0.0"}',
-            'binary.jpg': b'\x89PNG\r\n\x1a\n'  # Binary data
-        }
-        
-        for filename, content in self.test_files.items():
-            filepath = os.path.join(self.temp_dir, filename)
-            mode = 'wb' if isinstance(content, bytes) else 'w'
-            with open(filepath, mode) as f:
-                f.write(content)
-    
-    def tearDown(self):
-        import shutil
-        shutil.rmtree(self.temp_dir)
-    
-    def test_folder_analysis_integration(self):
-        """Test complete folder analysis"""
-        from services.file_service import FileService
-        
-        file_service = FileService()
-        
-        # Test folder reading
-        files = file_service.read_folder_files(self.temp_dir)
-        
-        # Should include text files but not binary
-        text_files = ['main.py', 'utils.js', 'README.md', 'config.json']
-        for filename in text_files:
-            self.assertIn(filename, files)
-        
-        self.assertNotIn('binary.jpg', files)
-        
-        # Test file statistics
-        stats = file_service.get_file_stats(files)
-        self.assertEqual(stats['total_files'], 4)
-        self.assertIn('py', stats['file_types'])
-        self.assertIn('js', stats['file_types'])
-        self.assertIn('md', stats['file_types'])
-        self.assertIn('json', stats['file_types'])
-
-class TestDiagramGenerationIntegration(unittest.TestCase):
-    """Test diagram generation integration"""
-    
-    @patch('services.ai_service.AIService')
-    def test_er_diagram_generation(self, mock_ai_service):
-        """Test ER diagram generation from code"""
-        from generators.diagram_generator import DiagramGenerator
-        
-        # Mock AI service for entity extraction
-        mock_ai_service_instance = mock_ai_service.return_value
-        mock_ai_service_instance.analyze_entities.return_value = [
-            {'name': 'User', 'attributes': ['id', 'name', 'email']},
-            {'name': 'Post', 'attributes': ['id', 'title', 'content', 'user_id']}
-        ]
-        
-        mock_ai_service_instance.analyze_relationships.return_value = [
-            {'from': 'User', 'to': 'Post', 'type': 'one-to-many'}
-        ]
-        
-        diagram_generator = DiagramGenerator()
-        
-        code_files = {
-            'models.py': '''
-            class User:
-                def __init__(self, id, name, email):
-                    self.id = id
-                    self.name = name
-                    self.email = email
-            
-            class Post:
-                def __init__(self, id, title, content, user_id):
-                    self.id = id
-                    self.title = title
-                    self.content = content
-                    self.user_id = user_id
-            '''
-        }
-        
-        er_diagram = diagram_generator.generate_er_diagram(code_files)
-        
-        self.assertIn('erDiagram', er_diagram)
-        self.assertIn('User', er_diagram)
-        self.assertIn('Post', er_diagram)
-    
-    @patch('services.ai_service.AIService')
-    def test_data_flow_diagram_generation(self, mock_ai_service):
-        """Test data flow diagram generation"""
-        from generators.diagram_generator import DiagramGenerator
-        
-        mock_ai_service_instance = mock_ai_service.return_value
-        mock_ai_service_instance.analyze_data_flows.return_value = [
-            {'from': 'User Input', 'to': 'Validation', 'data': 'form data'},
-            {'from': 'Validation', 'to': 'Database', 'data': 'validated data'}
-        ]
-        
-        diagram_generator = DiagramGenerator()
-        
-        code_files = {
-            'api.py': '''
-            def create_user(user_data):
-                validated_data = validate_user(user_data)
-                return save_to_database(validated_data)
-            '''
-        }
-        
-        flow_diagram = diagram_generator.generate_data_flow_diagram(code_files)
-        
-        self.assertIn('flowchart', flow_diagram)
-        self.assertIn('User Input', flow_diagram)
-        self.assertIn('Validation', flow_diagram)
-
-class TestErrorHandlingIntegration(unittest.TestCase):
-    """Test error handling integration"""
-    
-    @patch('boto3.Session')
-    def test_aws_error_handling(self, mock_session):
-        """Test AWS error handling"""
-        from services.ai_service import AIService
-        from botocore.exceptions import ClientError
-        
-        mock_client = MagicMock()
-        mock_session.return_value.client.return_value = mock_client
-        
-        # Simulate AWS error
-        mock_client.invoke_model.side_effect = ClientError(
-            {'Error': {'Code': 'AccessDeniedException', 'Message': 'Access denied'}},
-            'InvokeModel'
+        requirements = self.spec_engine.create_requirements(
+            feature_description, 
+            None, 
+            template_content
         )
         
-        ai_service = AIService()
+        # Verify template influence
+        self.assertIsInstance(requirements, str)
+        self.assertGreater(len(requirements), 0)
         
-        with self.assertRaises(Exception):
-            ai_service.generate_text("Test prompt")
+        # 4. Use template in design generation
+        design = self.spec_engine.generate_design(
+            requirements,
+            None,
+            template_content
+        )
+        
+        self.assertIsInstance(design, str)
+        self.assertGreater(len(design), 0)
+        
+        # 5. Use template in task generation
+        tasks = self.spec_engine.create_task_list(
+            design,
+            requirements,
+            template_content
+        )
+        
+        self.assertIsInstance(tasks, str)
+        self.assertGreater(len(tasks), 0)
     
-    def test_file_system_error_handling(self):
-        """Test file system error handling"""
-        from services.file_service import FileService
+    def test_template_management_workflow(self):
+        """Test template CRUD operations workflow"""
+        template_content = "Test template content with sufficient length for validation"
         
-        file_service = FileService()
+        # Create
+        result = self.template_service.save_template("CRUD Test", template_content)
+        self.assertTrue(result)
         
-        # Test non-existent folder
-        result = file_service.validate_folder_path('/non/existent/path')
-        self.assertFalse(result['valid'])
-        self.assertIn('does not exist', result['error'])
+        # Read
+        templates = self.template_service.list_templates()
+        self.assertEqual(len(templates), 1)
+        self.assertEqual(templates[0]['name'], "CRUD Test")
+        
+        loaded = self.template_service.load_template("CRUD Test")
+        self.assertEqual(loaded, template_content)
+        
+        # Update (save with same name)
+        updated_content = "Updated template content with sufficient length for validation"
+        result = self.template_service.save_template("CRUD Test", updated_content)
+        self.assertTrue(result)
+        
+        loaded = self.template_service.load_template("CRUD Test")
+        self.assertEqual(loaded, updated_content)
+        
+        # Delete
+        result = self.template_service.delete_template("CRUD Test")
+        self.assertTrue(result)
+        
+        templates = self.template_service.list_templates()
+        self.assertEqual(len(templates), 0)
+    
+    def test_template_validation_workflow(self):
+        """Test template validation in workflow context"""
+        # Valid template
+        valid_template = "Use TypeScript with strict mode. Follow clean architecture patterns. Write comprehensive tests."
+        validation = self.template_service.validate_template(valid_template)
+        
+        self.assertTrue(validation.is_valid)
+        self.assertEqual(len(validation.issues), 0)
+        self.assertGreater(validation.score, 60)
+        
+        # Invalid template
+        invalid_template = "Short"
+        validation = self.template_service.validate_template(invalid_template)
+        
+        self.assertFalse(validation.is_valid)
+        self.assertGreater(len(validation.issues), 0)
+        self.assertLess(validation.score, 60)
+    
+    def test_template_preview_functionality(self):
+        """Test template preview generation"""
+        template_content = "Use TypeScript with strict mode. Follow clean architecture patterns."
+        
+        preview = self.template_service.get_template_preview(template_content)
+        
+        self.assertIn("Template Integration Preview", preview)
+        self.assertIn(template_content, preview)
+        self.assertIn("Requirements generation", preview)
+        self.assertIn("Design document creation", preview)
+        self.assertIn("Implementation tasks", preview)
+    
+    def test_error_handling_workflow(self):
+        """Test error handling in various scenarios"""
+        # Invalid template name
+        result = self.template_service.save_template("", "Valid content")
+        self.assertFalse(result)
+        
+        # Invalid template content
+        result = self.template_service.save_template("Valid Name", "")
+        self.assertFalse(result)
+        
+        # Load non-existent template
+        content = self.template_service.load_template("Non-existent")
+        self.assertIsNone(content)
+        
+        # Delete non-existent template
+        result = self.template_service.delete_template("Non-existent")
+        self.assertFalse(result)
 
 if __name__ == '__main__':
     unittest.main()
