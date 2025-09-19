@@ -185,69 +185,91 @@ Focus on:
 Coding Template & Standards:
 {coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
 
-Please ensure all implementation tasks follow the development practices, testing patterns, code organization, and technical standards specified in the template above."""
+CRITICAL: Ensure all implementation tasks follow the specific development practices, testing patterns, code organization, and technical standards specified in the template above. Use the exact technologies, frameworks, and approaches mentioned in the template."""
+        else:
+            template_context = "\n\nNote: No coding template provided. Generate implementation tasks using modern best practices and choose appropriate technologies based on the design document and requirements."
         
-        tasks_prompt = f"""Convert this design into actionable implementation tasks following the established format:
+        tasks_prompt = f"""You are an expert technical lead creating a comprehensive implementation plan. Generate detailed, actionable coding tasks that match the quality and specificity of professional development plans.
 
+DESIGN DOCUMENT:
 {design}
+
+REQUIREMENTS CONTEXT:
 {requirements_context}
+
+CODING TEMPLATE & STANDARDS:
 {template_context}
 
-Generate tasks using this EXACT format:
+CRITICAL INSTRUCTIONS:
+1. Create 12-15 main implementation tasks covering all aspects of the system
+2. Include sub-tasks where appropriate (2-4 sub-tasks for complex main tasks)
+3. Each task should specify exact files, functions, and code to be written
+4. Follow the coding template's technology stack and patterns precisely
+5. Include comprehensive testing tasks (unit, integration, E2E)
+6. Address security, error handling, and performance optimization
+7. Build tasks incrementally with proper dependencies
+
+TASK FORMAT:
 
 # Implementation Plan
 
-- [ ] 1. Main task title
-  - Create/implement specific components or functionality
-  - Detailed description of what needs to be coded
-  - Specific files, functions, or modules to create/modify
-  - Technical implementation approach
-  - _Requirements: X.X, Y.Y_
+- [ ] 1. Set up project structure and core configuration
+  - Create [specific config files] with [specific technology] configuration
+  - Set up [specific dependencies] with required versions
+  - Create directory structure for [specific services/modules from design]
+  - Configure [specific tools/frameworks] for [specific purposes]
+  - _Requirements: [Reference specific requirement numbers]_
 
-- [ ] 2. Second main task title  
-  - [ ] 2.1 Sub-task title
-    - Specific coding task description
-    - Implementation details and approach
-    - Files or components to work on
-    - _Requirements: X.X_
-    
-  - [ ] 2.2 Another sub-task title
-    - Coding implementation details
-    - Technical specifications
+- [ ] 2. Implement [Core Service Name] with [specific functionality]
+  - [ ] 2.1 Create [specific component] with [specific methods/functions]
+    - Implement [specific function names] for [specific business logic]
+    - Add [specific validation/error handling] for [specific scenarios]
+    - Write [specific test files] covering [specific test cases]
+    - _Requirements: X.X, Y.Y_
+  
+  - [ ] 2.2 Implement [specific feature] with [specific approach]
+    - Create [specific files/classes] for [specific functionality]
+    - Add [specific database operations] using [specific patterns]
     - _Requirements: X.X_
 
-- [ ] 3. Third main task title
-  - Implementation description
-  - Technical details
+- [ ] 3. Implement [Another Major Component]
+  - Create [specific implementation details]
+  - Add [specific technical features]
   - _Requirements: X.X_
 
-IMPORTANT FORMATTING RULES:
-- Use "- [ ]" for unchecked tasks (some tasks may be marked "- [x]" if they represent completed foundation work)
-- Use hierarchical numbering (1, 2, 2.1, 2.2, 3, etc.)
-- Include requirement references as "_Requirements: X.X, Y.Y_"
-- Add detailed implementation descriptions under each task
-- Focus ONLY on coding tasks that involve writing, modifying, or testing code
-- Each task should build incrementally on previous tasks
-- Mix of main tasks and sub-tasks as appropriate (not every task needs sub-tasks)
+[Continue with 10-12 more detailed tasks...]
 
-Focus on:
-- Specific coding implementations (functions, classes, modules)
-- Database/data layer implementation
-- API/interface development
-- Business logic implementation
-- Testing implementation (unit, integration, E2E)
-- Error handling and validation
-- Security implementation
-- Performance optimization
+QUALITY STANDARDS FOR EACH TASK:
+- Specify exact file names and directory structures
+- Include specific function/method names to implement
+- Reference specific technologies and frameworks from template
+- Include specific test files and test scenarios
+- Address error handling and edge cases
+- Include performance and security considerations
+- Reference specific requirement numbers for traceability
+- Build incrementally (each task depends on previous tasks)
 
-Avoid:
-- User testing or feedback gathering
-- Deployment or infrastructure setup (unless coding deployment scripts)
-- Business process changes
-- Marketing or communication tasks
-- Manual testing or user acceptance testing
+TASK CATEGORIES TO INCLUDE:
+1. Project setup and configuration (1-2 tasks)
+2. Core services implementation (3-4 tasks with sub-tasks)
+3. Data layer and models (1-2 tasks)
+4. API/interface implementation (2-3 tasks)
+5. Business logic and calculations (2-3 tasks)
+6. Authentication and security (1-2 tasks)
+7. Testing implementation (2-3 tasks)
+8. Integration and workflow (1-2 tasks)
+9. Error handling and validation (1 task)
+10. Performance optimization (1 task)
 
-Each task should be concrete enough that a developer can execute it without additional clarification and should specify exactly what code needs to be written."""
+TECHNICAL SPECIFICITY:
+- Use exact technology names from the coding template
+- Include specific file extensions and naming conventions
+- Reference specific frameworks, libraries, and tools
+- Include specific database operations and query patterns
+- Address specific security implementations
+- Include specific testing frameworks and approaches
+
+Each task should be detailed enough that a developer can start coding immediately without additional clarification."""
 
         try:
             response = self.ai_service.generate_text(tasks_prompt, self.openflux_system_prompt)

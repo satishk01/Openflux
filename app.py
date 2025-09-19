@@ -340,7 +340,7 @@ def show_spec_generation():
             selected_template = st.selectbox(
                 "Load Saved Template",
                 options=template_options,
-                help="Select a previously saved coding template"
+                help="Select a previously saved coding template. 'Example:' templates are provided as starting points - customize them for your specific needs."
             )
             
             if selected_template != "None":
@@ -366,21 +366,69 @@ def show_spec_generation():
                         st.rerun()
                     else:
                         st.error("❌ Failed to delete template")
+            
+            # Help section
+            if st.button("❓ Template Guide", help="Learn how to create effective templates"):
+                st.info("""
+                **Creating High-Quality Templates:**
+                
+                📋 **Essential Sections to Include:**
+                • Architecture & Technology Stack
+                • Development Practices & Standards
+                • Data Management Approach
+                • Security & Performance Requirements
+                • Testing Strategy & Quality Assurance
+                • Deployment & Infrastructure Approach
+                
+                🎯 **Be Specific About YOUR Stack:**
+                • Name your exact technologies and versions
+                • Specify your chosen frameworks and libraries
+                • Include your coding patterns and conventions
+                • Define your testing approaches and tools
+                • Describe your deployment and monitoring strategy
+                
+                📏 **Aim for 500+ characters** for comprehensive AI guidance
+                
+                💡 **Examples:** Use sample templates above as starting points, then customize for your specific technology stack and requirements.
+                """)
         
         # Template input area
+        st.markdown("**💡 Tip:** Create comprehensive templates covering architecture, technology stack, development practices, security, and testing for best results.")
+        
         coding_template = st.text_area(
             "Coding Template",
             value=st.session_state.coding_template,
-            height=200,
-            placeholder="""Example template:
-- Use serverless architecture with AWS Lambda functions
-- Follow microservices pattern with separate services for each domain
-- Use DynamoDB for data persistence with proper table design
-- Implement RESTful API design with consistent endpoint patterns
-- Follow test-driven development with comprehensive unit and integration tests
-- Use proper error handling with standardized error response formats
-- Implement authentication and authorization for secure access
-- Follow performance best practices for scalable solutions""",
+            height=300,
+            placeholder="""Example template structure (adapt to your technology stack):
+
+ARCHITECTURE & TECHNOLOGY STACK:
+- Define your architecture pattern (microservices, monolith, serverless, etc.)
+- Specify your technology stack (programming languages, frameworks, databases)
+- Choose your deployment platform (cloud provider, on-premise, containers)
+- Define your communication patterns (REST, GraphQL, messaging, etc.)
+
+DEVELOPMENT PRACTICES:
+- Specify your testing approach and frameworks
+- Define code quality tools and standards
+- Choose your version control and branching strategy
+- Define your build and deployment processes
+
+DATA MANAGEMENT:
+- Specify your database technology and design patterns
+- Define your data validation and migration strategies
+- Choose your caching and performance optimization approaches
+
+SECURITY & COMPLIANCE:
+- Define your authentication and authorization approach
+- Specify your security standards and practices
+- Choose your monitoring and logging strategies
+- Define your compliance requirements
+
+Examples: Load sample templates above or create your own based on:
+• Serverless (AWS Lambda, DynamoDB, API Gateway)
+• Full-stack (React, Node.js, PostgreSQL, Docker)
+• Enterprise (Java Spring, Oracle, Kubernetes)
+• Mobile (React Native, Firebase, REST APIs)""",
             help="Describe your coding patterns, architectural preferences, naming conventions, testing approaches, and any other standards that should influence the generated specifications."
         )
         

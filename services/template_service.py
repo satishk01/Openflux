@@ -31,21 +31,53 @@ class CodingTemplate:
             issues.append("Template should contain more descriptive content (at least 10 words).")
         
         # Check for coding-related keywords
-        coding_keywords = ['class', 'function', 'method', 'variable', 'pattern', 'architecture', 
-                          'framework', 'library', 'convention', 'standard', 'practice']
-        if not any(keyword in self.content.lower() for keyword in coding_keywords):
-            suggestions.append("Consider adding specific coding patterns, conventions, or architectural guidelines.")
+        coding_keywords = ['architecture', 'framework', 'library', 'pattern', 'service', 'api', 
+                          'database', 'authentication', 'testing', 'security', 'performance',
+                          'deployment', 'monitoring', 'logging', 'validation', 'error handling']
+        
+        technology_keywords = [
+            # Programming Languages
+            'python', 'java', 'javascript', 'typescript', 'c#', 'go', 'rust', 'php', 'ruby', 'swift', 'kotlin',
+            # Frameworks & Libraries  
+            'react', 'angular', 'vue', 'spring', 'django', 'flask', 'express', 'laravel', 'rails', '.net',
+            # Databases
+            'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'dynamodb', 'oracle', 'sqlite',
+            # Cloud & Infrastructure
+            'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform', 'serverless', 'lambda', 'microservices',
+            # Architecture Patterns
+            'rest', 'graphql', 'grpc', 'soap', 'mvc', 'mvvm', 'clean architecture', 'hexagonal',
+            # Development Tools
+            'git', 'jenkins', 'github', 'gitlab', 'ci/cd', 'webpack', 'babel', 'npm', 'yarn', 'maven', 'gradle'
+        ]
+        
+        has_coding_keywords = any(keyword in self.content.lower() for keyword in coding_keywords)
+        has_tech_keywords = any(keyword in self.content.lower() for keyword in technology_keywords)
+        
+        if not has_coding_keywords:
+            suggestions.append("Consider adding specific architectural patterns, coding practices, or development approaches.")
+        
+        if not has_tech_keywords:
+            suggestions.append("Consider specifying technology stack, frameworks, or platforms to be used.")
+        
+        if character_count < 200:
+            suggestions.append("Consider adding more detailed coding standards and architectural guidelines for better AI guidance.")
         
         # Calculate quality score
         score = 0
         if character_count >= 50:
-            score += 30
+            score += 20
         if character_count >= 200:
-            score += 20
+            score += 25
+        if character_count >= 500:
+            score += 15
         if len(self.content.split()) >= 20:
-            score += 20
-        if any(keyword in self.content.lower() for keyword in coding_keywords):
-            score += 30
+            score += 15
+        if len(self.content.split()) >= 50:
+            score += 10
+        if has_coding_keywords:
+            score += 10
+        if has_tech_keywords:
+            score += 5
         
         return {
             'is_valid': len(issues) == 0,
