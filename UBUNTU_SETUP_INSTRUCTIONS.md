@@ -1,22 +1,22 @@
-# 🐧 Ubuntu 20.04 Complete Setup Instructions
+# 🐧 Ubuntu 24.04 LTS Complete Setup Instructions
 
 ## 📋 **Prerequisites**
 
-You'll need an Ubuntu 20.04 server. Here are your options:
+You'll need an Ubuntu 24.04 LTS server. Here are your options:
 
-### **Option 1: Launch New Ubuntu 20.04 EC2 Instance (Recommended)**
+### **Option 1: Launch New Ubuntu 24.04 LTS EC2 Instance (Recommended)**
 
 1. **Go to AWS EC2 Console**
 2. **Launch Instance**
-3. **Choose AMI**: Ubuntu Server 20.04 LTS (HVM), SSD Volume Type
-4. **Instance Type**: t3.medium or larger (minimum 4GB RAM)
-5. **Storage**: 20GB or more
+3. **Choose AMI**: Ubuntu Server 24.04 LTS (HVM), SSD Volume Type
+4. **Instance Type**: t3.medium or larger (minimum 4GB RAM, 8GB recommended)
+5. **Storage**: 25GB or more (Ubuntu 24.04 needs slightly more space)
 6. **Security Group**: Allow SSH (port 22)
 7. **Launch with your existing key pair**
 
-### **Option 2: Use Existing Ubuntu 20.04 Server**
+### **Option 2: Use Existing Ubuntu 24.04 LTS Server**
 
-If you already have Ubuntu 20.04, you can use it directly.
+If you already have Ubuntu 24.04 LTS, you can use it directly.
 
 ## 🚀 **Complete Build Process**
 
@@ -50,8 +50,8 @@ cd Openflux  # or whatever your project directory is named
 # Make the script executable
 chmod +x ubuntu_complete_build.sh
 
-# Run the complete build (takes 15-20 minutes)
-./ubuntu_complete_build.sh
+# Run the complete build (takes 15-25 minutes on Ubuntu 24.04)
+./ubuntu_24_04_complete_build.sh
 ```
 
 ### **Step 4: Download Your Windows Executable**
@@ -71,25 +71,26 @@ scp -i your-key.pem ubuntu@your-ubuntu-ip:~/Openflux/dist/OpenFlux_AI_Assistant_
 
 ## 📊 **What the Script Does**
 
-The `ubuntu_complete_build.sh` script automatically:
+The `ubuntu_24_04_complete_build.sh` script automatically:
 
-1. ✅ **Updates Ubuntu system**
-2. ✅ **Installs Python 3.9**
-3. ✅ **Installs Wine (Windows compatibility layer)**
-4. ✅ **Sets up Windows Python environment in Wine**
-5. ✅ **Installs all dependencies (Linux and Windows)**
-6. ✅ **Builds Windows executable using Wine**
-7. ✅ **Creates distribution package**
-8. ✅ **Provides download instructions**
+1. ✅ **Updates Ubuntu 24.04 LTS system**
+2. ✅ **Installs Python 3.12 (default) and compatibility versions**
+3. ✅ **Installs Wine 9.x (latest stable for Ubuntu 24.04)**
+4. ✅ **Sets up Windows Python 3.11.9 environment in Wine**
+5. ✅ **Installs all dependencies (Linux and Windows versions)**
+6. ✅ **Builds Windows executable using Wine with optimizations**
+7. ✅ **Creates comprehensive distribution package**
+8. ✅ **Provides download instructions and troubleshooting tools**
 
 ## 🎯 **Expected Results**
 
 After successful completion, you'll have:
 
-- ✅ **OpenFlux_AI_Assistant.exe** - Windows 11 compatible executable
-- ✅ **Complete distribution package** with documentation
+- ✅ **OpenFlux_AI_Assistant.exe** - Windows 11 compatible executable (built with Wine 9.x)
+- ✅ **Complete distribution package** with documentation and troubleshooting tools
 - ✅ **Ready-to-use ZIP file** for easy transfer
-- ✅ **All OpenFlux features** working on Windows
+- ✅ **All OpenFlux features** working on Windows with enhanced compatibility
+- ✅ **Startup and troubleshooting batch files** for easier use
 
 ## 🔧 **If You Encounter Issues**
 
@@ -159,12 +160,13 @@ chmod +x ubuntu_complete_build.sh
 scp -i your-key.pem ubuntu@your-ubuntu-ip:~/Openflux/dist/OpenFlux_AI_Assistant_Windows11_Ubuntu_Built.zip ./
 ```
 
-## 🌟 **Why Ubuntu 20.04?**
+## 🌟 **Why Ubuntu 24.04 LTS?**
 
-- ✅ **Stable Wine packages** - No dependency conflicts
-- ✅ **Proven compatibility** - Well-tested package combinations  
-- ✅ **Better support** - More documentation and community help
-- ✅ **Reliable builds** - Consistent results across different setups
-- ✅ **LTS version** - Long-term support and stability
+- ✅ **Latest Wine 9.x** - Best Windows compatibility and performance
+- ✅ **Python 3.12** - Latest Python with improved performance and features
+- ✅ **Enhanced security** - Latest security features and updates
+- ✅ **Better package management** - More reliable dependency resolution
+- ✅ **LTS version** - Long-term support until 2029
+- ✅ **Optimized performance** - Better resource utilization and speed
 
 This approach gives you a **true Windows executable** that will work perfectly on your Windows 11 laptop without needing Python installed!
