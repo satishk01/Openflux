@@ -60,25 +60,75 @@ def open_browser(port):
         print(f"Please open your browser and go to: {url}")
 
 def cleanup_on_exit():
-    """Cleanup function to run on exit"""
+    """Cleanup function to run on exit with resource management"""
     logger.info("Application shutting down...")
-    # Any cleanup code here
+    
+    # Force garbage collection
+    import gc
+    gc.collect()
+    
+    # Clear any temporary files
+    try:
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        # Clean up any OpenFlux temporary files
+        for file in Path(temp_dir).glob("openflux_*"):
+            try:
+                file.unlink()
+            except:
+                pass
+    except:
+        pass
+    
+    # Clear environment variables
+    env_vars_to_clear = [
+        'STREAMLIT_SERVER_FILE_WATCHER_TYPE',
+        'STREAMLIT_BROWSER_GATHER_USAGE_STATS', 
+        'STREAMLIT_SERVER_HEADLESS'
+    ]
+    
+    for var in env_vars_to_clear:
+        if var in os.environ:
+            del os.environ[var]
+    
+    logger.info("Cleanup completed")
 
 def main():
     """Main startup function"""
     try:
         logger.info("Starting OpenFlux AI Assistant...")
         
-        # Set up environment
+        # Set up environment with executable optimizations
         if getattr(sys, 'frozen', False):
-            # Running as executable
+            # Running as executable - optimize for Windows
             app_dir = Path(sys._MEIPASS)
             os.chdir(app_dir)
+            
+            # Windows-specific optimizations
+            if sys.platform.startswith('win'):
+                # Set process priority to normal (not high) for better resource sharing
+                try:
+                    import psutil
+                    process = psutil.Process()
+                    process.nice(psutil.NORMAL_PRIORITY_CLASS)
+                except ImportError:
+                    pass  # psutil not available, continue without optimization
+                
+                # Set environment variables for better Windows performance
+                os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'none'
+                os.environ['STREAMLIT_BROWSER_GATHER_USAGE_STATS'] = 'false'
+                os.environ['STREAMLIT_SERVER_HEADLESS'] = 'true'
         else:
             # Running as script
             app_dir = Path(__file__).parent
         
         logger.info(f"Application directory: {app_dir}")
+        
+        # Memory optimization for executable
+        if getattr(sys, 'frozen', False):
+            # Limit memory usage for executable environment
+            import gc
+            gc.set_threshold(700, 10, 10)  # More aggressive garbage collection
         
         # Find available port
         port = find_free_port()
@@ -89,7 +139,7 @@ def main():
         
         logger.info(f"Using port: {port}")
         
-        # Prepare Streamlit command
+        # Prepare Streamlit command with executable optimizations
         streamlit_cmd = [
             sys.executable, "-m", "streamlit", "run", "app.py",
             "--server.port", str(port),
@@ -97,8 +147,21 @@ def main():
             "--server.headless", "true",
             "--browser.gatherUsageStats", "false",
             "--server.fileWatcherType", "none",
-            "--theme.base", "dark"
+            "--theme.base", "dark",
+            "--server.maxUploadSize", "50",  # Limit upload size for memory management
+            "--server.maxMessageSize", "50",  # Limit message size
+            "--runner.magicEnabled", "false",  # Disable magic commands for performance
+            "--runner.installTracer", "false",  # Disable install tracer
+            "--global.developmentMode", "false"  # Ensure production mode
         ]
+        
+        # Add Windows-specific optimizations
+        if sys.platform.startswith('win') and getattr(sys, 'frozen', False):
+            streamlit_cmd.extend([
+                "--server.enableCORS", "false",  # Disable CORS for local use
+                "--server.enableXsrfProtection", "false",  # Disable XSRF for local use
+                "--server.enableWebsocketCompression", "false"  # Reduce CPU usage
+            ])
         
         logger.info("Starting Streamlit server...")
         

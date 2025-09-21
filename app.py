@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import sys
 from pathlib import Path
 from services.ai_service import AIService
 from services.file_service import FileService
@@ -16,12 +17,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Import custom CSS for OpenFlux styling
+# Import custom CSS for OpenFlux styling with Windows path handling
 def load_css():
-    css_file = Path("styles/openflux_theme.css")
+    # Handle both executable and script environments
+    if getattr(sys, 'frozen', False):
+        # Running as executable
+        base_path = Path(sys._MEIPASS)
+    else:
+        # Running as script
+        base_path = Path(__file__).parent
+    
+    css_file = base_path / "styles" / "openflux_theme.css"
+    
     if css_file.exists():
-        with open(css_file) as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        try:
+            with open(css_file, encoding='utf-8') as f:
+                st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+        except Exception as e:
+            # Fallback to basic styling if CSS loading fails
+            st.markdown("""
+            <style>
+            .main { padding-top: 1rem; }
+            .sidebar .sidebar-content { padding-top: 1rem; }
+            </style>
+            """, unsafe_allow_html=True)
 
 def main():
     load_css()
