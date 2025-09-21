@@ -62,18 +62,27 @@ pip install --upgrade pip setuptools wheel
 
 # Install Wine for Windows cross-compilation
 echo "🍷 Installing Wine..."
-# Install EPEL repository
-sudo yum install -y epel-release
 
-# Clean yum cache to avoid conflicts
-sudo yum clean all
-
-# Install Wine
-echo "Installing Wine packages..."
-sudo yum install -y wine || {
-    echo "⚠️ Wine installation failed, trying alternative approach..."
-    sudo yum install -y --skip-broken wine
-}
+# Detect Amazon Linux version
+if grep -q "Amazon Linux 2023" /etc/os-release; then
+    echo "Detected Amazon Linux 2023"
+    # For Amazon Linux 2023, Wine is available in the main repository
+    sudo yum install -y wine
+elif grep -q "Amazon Linux 2" /etc/os-release; then
+    echo "Detected Amazon Linux 2"
+    # For Amazon Linux 2, need EPEL
+    sudo yum install -y epel-release
+    sudo yum clean all
+    sudo yum install -y wine
+else
+    echo "Unknown Amazon Linux version, trying direct installation..."
+    sudo yum install -y wine || {
+        echo "⚠️ Wine installation failed, trying with EPEL..."
+        sudo yum install -y epel-release || echo "EPEL already available"
+        sudo yum clean all
+        sudo yum install -y wine
+    }
+fi
 
 # Configure Wine
 echo "⚙️ Configuring Wine..."
