@@ -34,7 +34,7 @@ You talk like a human, not like a bot. You reflect the user's input style in you
 - Include relevant code snippets, CLI commands, or configuration examples
 - Explain your reasoning when making recommendations"""
     
-    def create_requirements(self, feature_description: str, codebase_context: Dict = None) -> str:
+    def create_requirements(self, feature_description: str, codebase_context: Dict = None, coding_template: str = None) -> str:
         """Generate EARS-format requirements from feature description"""
         
         context_info = ""
@@ -47,10 +47,20 @@ Codebase Context:
 - Architecture Insights: {codebase_context.get('analysis', 'No analysis available')[:500]}...
 """
         
+        template_info = ""
+        if coding_template and coding_template.strip():
+            template_info = f"""
+
+Coding Template & Standards:
+{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
+
+Please ensure the requirements align with the coding patterns, architectural preferences, and development standards specified in the template above."""
+        
         requirements_prompt = f"""Generate detailed requirements in EARS format (Easy Approach to Requirements Syntax) for the following feature:
 
 Feature Description: {feature_description}
 {context_info}
+{template_info}
 
 Please format the requirements document with:
 
@@ -82,12 +92,12 @@ Focus on:
 Make the requirements specific, testable, and implementable."""
 
         try:
-            return self.ai_service.generate_text(requirements_prompt, self.openflux_system_prompt)
+            return self.ai_service.generate_requirements(feature_description, None, coding_template)
         except Exception as e:
             self.logger.error(f"Requirements generation failed: {e}")
             raise e
     
-    def generate_design(self, requirements: str, codebase_context: Dict = None) -> str:
+    def generate_design(self, requirements: str, codebase_context: Dict = None, coding_template: str = None) -> str:
         """Generate design document from requirements"""
         
         context_info = ""
@@ -100,10 +110,20 @@ Existing Codebase Context:
 - Current Architecture: {codebase_context.get('analysis', 'No analysis available')[:500]}...
 """
         
+        template_info = ""
+        if coding_template and coding_template.strip():
+            template_info = f"""
+
+Coding Template & Standards:
+{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
+
+Please ensure the design follows the architectural patterns, component structures, naming conventions, and technical approaches specified in the template above."""
+        
         design_prompt = f"""Create a comprehensive design document based on these requirements:
 
 {requirements}
 {context_info}
+{template_info}
 
 Please format the design document with these sections:
 
@@ -146,67 +166,110 @@ Focus on:
 - Technical implementation details"""
 
         try:
-            return self.ai_service.generate_text(design_prompt, self.openflux_system_prompt)
+            return self.ai_service.create_design(requirements, codebase_context, coding_template)
         except Exception as e:
             self.logger.error(f"Design generation failed: {e}")
             raise e
     
-    def create_task_list(self, design: str, requirements: str = None) -> str:
+    def create_task_list(self, design: str, requirements: str = None, coding_template: str = None) -> str:
         """Generate implementation tasks from design document in Kiro markdown format"""
         
         requirements_context = ""
         if requirements:
             requirements_context = f"\n\nRequirements Context:\n{requirements[:1000]}..."
         
-        tasks_prompt = f"""Convert this design into actionable implementation tasks in Kiro markdown format:
+        template_context = ""
+        if coding_template and coding_template.strip():
+            template_context = f"""
 
+Coding Template & Standards:
+{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}
+
+CRITICAL: Ensure all implementation tasks follow the specific development practices, testing patterns, code organization, and technical standards specified in the template above. Use the exact technologies, frameworks, and approaches mentioned in the template."""
+        else:
+            template_context = "\n\nNote: No coding template provided. Generate implementation tasks using modern best practices and choose appropriate technologies based on the design document and requirements."
+        
+        tasks_prompt = f"""You are an expert technical lead creating a comprehensive implementation plan. Generate detailed, actionable coding tasks that match the quality and specificity of professional development plans.
+
+DESIGN DOCUMENT:
 {design}
+
+REQUIREMENTS CONTEXT:
 {requirements_context}
 
-Generate tasks using this EXACT format:
+CODING TEMPLATE & STANDARDS:
+{template_context}
+
+CRITICAL INSTRUCTIONS:
+1. Create 12-15 main implementation tasks covering all aspects of the system
+2. Include sub-tasks where appropriate (2-4 sub-tasks for complex main tasks)
+3. Each task should specify exact files, functions, and code to be written
+4. Follow the coding template's technology stack and patterns precisely
+5. Include comprehensive testing tasks (unit, integration, E2E)
+6. Address security, error handling, and performance optimization
+7. Build tasks incrementally with proper dependencies
+
+TASK FORMAT:
 
 # Implementation Plan
 
-- [ ] 1. Main task title
-  - [ ] 1.1 Sub-task title
-    - Detailed description of what needs to be implemented
-    - Specific files or components to create/modify
-    - Technical implementation details
-    - _Requirements: 1.1, 2.3_
+- [ ] 1. Set up project structure and core configuration
+  - Create [specific config files] with [specific technology] configuration
+  - Set up [specific dependencies] with required versions
+  - Create directory structure for [specific services/modules from design]
+  - Configure [specific tools/frameworks] for [specific purposes]
+  - _Requirements: [Reference specific requirement numbers]_
 
-  - [ ] 1.2 Another sub-task title
-    - Implementation details
-    - Code changes needed
-    - _Requirements: 2.1_
+- [ ] 2. Implement [Core Service Name] with [specific functionality]
+  - [ ] 2.1 Create [specific component] with [specific methods/functions]
+    - Implement [specific function names] for [specific business logic]
+    - Add [specific validation/error handling] for [specific scenarios]
+    - Write [specific test files] covering [specific test cases]
+    - _Requirements: X.X, Y.Y_
+  
+  - [ ] 2.2 Implement [specific feature] with [specific approach]
+    - Create [specific files/classes] for [specific functionality]
+    - Add [specific database operations] using [specific patterns]
+    - _Requirements: X.X_
 
-- [ ] 2. Second main task title
-  - [ ] 2.1 Sub-task for second main task
-    - Implementation details
-    - _Requirements: 3.1_
+- [ ] 3. Implement [Another Major Component]
+  - Create [specific implementation details]
+  - Add [specific technical features]
+  - _Requirements: X.X_
 
-IMPORTANT FORMATTING RULES:
-- Use "- [ ]" for unchecked tasks (not "- [x]")
-- Use hierarchical numbering (1, 1.1, 1.2, 2, 2.1, etc.)
-- Include requirement references as "_Requirements: X.X, Y.Y_"
-- Add detailed implementation descriptions under each task
-- Focus ONLY on coding tasks that involve writing, modifying, or testing code
-- Each task should build incrementally on previous tasks
-- Maximum of 2 levels of hierarchy (main tasks and sub-tasks)
+[Continue with 10-12 more detailed tasks...]
 
-Focus on:
-- Coding tasks that can be executed by developers
-- Test-driven development approach
-- Incremental implementation steps
-- Specific file/component references
-- Building functionality step by step
+QUALITY STANDARDS FOR EACH TASK:
+- Specify exact file names and directory structures
+- Include specific function/method names to implement
+- Reference specific technologies and frameworks from template
+- Include specific test files and test scenarios
+- Address error handling and edge cases
+- Include performance and security considerations
+- Reference specific requirement numbers for traceability
+- Build incrementally (each task depends on previous tasks)
 
-Avoid:
-- User testing or feedback gathering
-- Deployment or infrastructure tasks
-- Business process changes
-- Marketing or communication tasks
+TASK CATEGORIES TO INCLUDE:
+1. Project setup and configuration (1-2 tasks)
+2. Core services implementation (3-4 tasks with sub-tasks)
+3. Data layer and models (1-2 tasks)
+4. API/interface implementation (2-3 tasks)
+5. Business logic and calculations (2-3 tasks)
+6. Authentication and security (1-2 tasks)
+7. Testing implementation (2-3 tasks)
+8. Integration and workflow (1-2 tasks)
+9. Error handling and validation (1 task)
+10. Performance optimization (1 task)
 
-Each task should be concrete enough that a developer can execute it without additional clarification."""
+TECHNICAL SPECIFICITY:
+- Use exact technology names from the coding template
+- Include specific file extensions and naming conventions
+- Reference specific frameworks, libraries, and tools
+- Include specific database operations and query patterns
+- Address specific security implementations
+- Include specific testing frameworks and approaches
+
+Each task should be detailed enough that a developer can start coding immediately without additional clarification."""
 
         try:
             response = self.ai_service.generate_text(tasks_prompt, self.openflux_system_prompt)
@@ -215,6 +278,32 @@ Each task should be concrete enough that a developer can execute it without addi
         except Exception as e:
             self.logger.error(f"Task generation failed: {e}")
             raise e
+    
+    def incorporate_template(self, prompt: str, template: str) -> str:
+        """Incorporate coding template into AI prompt"""
+        if not template or not template.strip():
+            return prompt
+        
+        try:
+            # Add template context to the prompt
+            template_section = f"""
+
+CODING TEMPLATE & STANDARDS:
+{template[:1500]}{'...' if len(template) > 1500 else ''}
+
+Please ensure all generated content follows the patterns, conventions, and standards specified in the template above.
+"""
+            
+            # Insert template section before the main prompt instructions
+            if "Please format" in prompt:
+                parts = prompt.split("Please format", 1)
+                return parts[0] + template_section + "\nPlease format" + parts[1]
+            else:
+                return prompt + template_section
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to incorporate template into prompt: {e}")
+            return prompt
     
     def update_document(self, doc_type: str, content: str, version: int = 1) -> bool:
         """Update specification document in session state"""

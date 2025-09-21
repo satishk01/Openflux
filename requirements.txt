@@ -16,3 +16,4 @@ aiofiles>=23.2.1
 httpx>=0.25.0
 pillow>=10.1.0
 watchdog>=3.0.0
+pyinstaller>=5.13.2

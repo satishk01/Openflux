@@ -8,10 +8,11 @@ import streamlit as st
 class AIService:
     """AI Service for AWS Bedrock integration with Claude and Nova models"""
     
-    def __init__(self):
+    def __init__(self, credentials_manager=None):
         self.bedrock_client = None
         self.bedrock_control_client = None
         self.current_model = None
+        self.credentials_manager = credentials_manager
         self.model_configs = {
             "Claude Sonnet 3.5 v2": {
                 "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
@@ -27,20 +28,31 @@ class AIService:
         self.logger = logging.getLogger(__name__)
         
     def initialize_bedrock_client(self) -> bool:
-        """Initialize AWS Bedrock client using EC2 IAM role"""
+        """Initialize AWS Bedrock client using credentials manager"""
         try:
-            # Use default credentials (EC2 IAM role)
-            session = boto3.Session()
+            # Get AWS session from credentials manager
+            if self.credentials_manager:
+                session = self.credentials_manager.get_aws_session()
+                if not session:
+                    self.logger.error("No valid AWS session available from credentials manager")
+                    st.error("🚨 No valid AWS credentials. Please configure your credentials first.")
+                    return False
+            else:
+                # Fallback to default credentials (for backward compatibility)
+                session = boto3.Session()
+            
+            # Get region from session or use default
+            region = session.region_name or 'us-east-1'
             
             # Initialize both clients - bedrock for listing models, bedrock-runtime for inference
             self.bedrock_client = session.client(
                 service_name='bedrock-runtime',
-                region_name='us-east-1'  # Adjust region as needed
+                region_name=region
             )
             
             self.bedrock_control_client = session.client(
                 service_name='bedrock',
-                region_name='us-east-1'
+                region_name=region
             )
             
             # Test connection
@@ -48,8 +60,8 @@ class AIService:
             return True
             
         except NoCredentialsError:
-            self.logger.error("No AWS credentials found. Ensure EC2 instance has proper IAM role.")
-            st.error("🚨 AWS credentials not found. Please ensure EC2 instance has proper IAM role.")
+            self.logger.error("No AWS credentials found. Please provide valid credentials.")
+            st.error("🚨 AWS credentials not found. Please configure your AWS Access Key and Secret Key.")
             return False
         except ClientError as e:
             self.logger.error(f"AWS Bedrock client initialization failed: {e}")
@@ -116,6 +128,13 @@ class AIService:
         if model_name not in self.model_configs:
             st.error(f"🚨 Unknown model: {model_name}")
             return False
+        
+        # Check if we have valid credentials first
+        if self.credentials_manager:
+            status = self.credentials_manager.get_credentials_status()
+            if not (status['has_credentials'] and status['validated']):
+                st.error("🚨 Please configure your AWS credentials first")
+                return False
         
         if not self.bedrock_client:
             if not self.initialize_bedrock_client():
@@ -200,6 +219,12 @@ class AIService:
         if not self.current_model:
             raise Exception("No model selected. Please select a model first.")
         
+        # Verify credentials are still valid
+        if self.credentials_manager:
+            status = self.credentials_manager.get_credentials_status()
+            if not (status['has_credentials'] and status['validated']):
+                raise Exception("AWS credentials are not available. Please reconfigure your credentials.")
+        
         if not self.bedrock_client:
             if not self.initialize_bedrock_client():
                 raise Exception("Failed to initialize Bedrock client")
@@ -217,49 +242,210 @@ class AIService:
             
         except Exception as e:
             self.logger.error(f"Text generation failed: {e}")
+            # Don't expose credential details in error messages
+            if "credential" in str(e).lower() or "access" in str(e).lower():
+                raise Exception("Authentication failed. Please check your AWS credentials.")
             raise e
     
-    def generate_requirements(self, description: str, context: Dict = None) -> str:
+    def generate_requirements(self, description: str, context: Dict = None, coding_template: str = None) -> str:
         """Generate EARS-format requirements from description"""
-        system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers. 
-        Generate detailed requirements in EARS format (Easy Approach to Requirements Syntax) based on the provided description.
-        
-        Format the requirements as:
-        1. WHEN [event] THEN [system] SHALL [response]
-        2. IF [precondition] THEN [system] SHALL [response]
-        
-        Include user stories in the format: "As a [role], I want [feature], so that [benefit]"
-        
-        Be comprehensive and consider edge cases, user experience, and technical constraints."""
+        system_prompt = """You are an expert business analyst and requirements engineer. Generate comprehensive, detailed business requirements in EARS format that match the quality and depth of professional specification documents.
+
+        CRITICAL INSTRUCTIONS:
+        1. Generate BUSINESS REQUIREMENTS ONLY - no technical implementation details
+        2. Create 6-8 comprehensive requirements covering all major functional areas
+        3. Each requirement should have 4-6 detailed acceptance criteria
+        4. Use precise, professional language with specific business terminology
+        5. Include edge cases, error scenarios, and business rules
+        6. Consider different user roles and their specific needs
+        7. Address security, compliance, and audit requirements from business perspective
+
+        DOCUMENT STRUCTURE:
+
+        # Requirements Document
+
+        ## Introduction
+        Write a comprehensive 2-3 paragraph introduction that:
+        - Clearly describes the business purpose and scope
+        - Identifies the target users and stakeholders  
+        - Explains the business value and objectives
+        - References the technical approach (from template) without implementation details
+
+        ## Requirements
+
+        ### Requirement 1: [Core Business Function]
+        **User Story:** As a [specific role], I want [detailed business capability], so that [clear business benefit and value]
+
+        #### Acceptance Criteria
+        1. WHEN [specific business event/trigger] THEN [system] SHALL [detailed business response with specific outcomes]
+        2. WHEN [user action with context] THEN [system] SHALL [comprehensive behavior including data returned]
+        3. IF [business condition or constraint] THEN [system] SHALL [appropriate business behavior]
+        4. WHEN [edge case or error scenario] THEN [system] SHALL [error handling from business perspective]
+        5. WHEN [integration or workflow scenario] THEN [system] SHALL [cross-functional behavior]
+        6. WHEN [security or compliance scenario] THEN [system] SHALL [business-level security requirements]
+
+        [Continue with 5-7 more requirements covering all major business functions]
+
+        QUALITY STANDARDS:
+        - Each acceptance criterion should be testable and measurable
+        - Use specific business terminology and domain language
+        - Include quantitative measures where appropriate (response times, limits, etc.)
+        - Address both happy path and error scenarios
+        - Consider different user roles and permissions
+        - Include audit, compliance, and reporting requirements
+        - Address data validation and business rules
+        - Consider integration points and external dependencies
+
+        BUSINESS FOCUS AREAS:
+        - Core business functionality and workflows
+        - User management and authentication (business perspective)
+        - Data management and business rules
+        - Integration requirements (what systems, not how)
+        - Security and compliance (business requirements)
+        - Reporting and analytics needs
+        - Performance expectations (business impact)
+        - Error handling and business continuity"""
         
         context_str = ""
         if context:
             context_str = f"\n\nAdditional context:\n{json.dumps(context, indent=2)}"
         
-        prompt = f"Generate requirements for: {description}{context_str}"
+        template_str = ""
+        if coding_template and coding_template.strip():
+            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nIMPORTANT: Use this template to understand the technical context and constraints, but generate BUSINESS requirements only. Adapt your requirements to align with the architectural approach and technology choices mentioned in the template, while keeping requirements focused on business functionality."
+        else:
+            template_str = "\n\nNote: No coding template provided. Generate technology-agnostic business requirements that can be implemented with any suitable technology stack."
+        
+        prompt = f"Generate business requirements document for: {description}{context_str}{template_str}"
         
         return self.generate_text(prompt, system_prompt)
     
-    def create_design(self, requirements: str, codebase: Dict = None) -> str:
+    def create_design(self, requirements: str, codebase: Dict = None, coding_template: str = None) -> str:
         """Create design document from requirements"""
-        system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers.
-        Create a comprehensive design document based on the provided requirements.
+        system_prompt = """You are an expert software architect and technical lead. Create a comprehensive, professional-grade technical design document that matches the quality and depth of enterprise-level system designs.
+
+        CRITICAL INSTRUCTIONS:
+        1. Follow the coding template's architectural patterns and technology choices precisely
+        2. Create detailed technical specifications with specific implementation approaches
+        3. Include comprehensive Mermaid diagrams showing system architecture
+        4. Provide specific data models with field definitions and types
+        5. Address all technical aspects: security, performance, scalability, testing
+        6. Use professional technical language and industry best practices
+        7. Include specific technology stack details from the template
+
+        DOCUMENT STRUCTURE:
+
+        # Design Document
+
+        ## Overview
+        Write a comprehensive 2-3 paragraph technical overview that:
+        - Describes the overall architecture approach and style (from template)
+        - Identifies key technology choices and their rationale
+        - Explains how the design addresses the business requirements
+        - Highlights scalability, security, and performance considerations
+        - References specific patterns and frameworks from the coding template
+
+        ## Architecture
+
+        ### High-Level Architecture
+        Create a detailed Mermaid diagram showing:
+        - All major system components and services
+        - Data flow between components
+        - External integrations and dependencies
+        - Technology stack elements (databases, APIs, services)
+        - Security boundaries and access patterns
+
+        ```mermaid
+        graph TB
+            [Create comprehensive architecture diagram with 15-25 nodes showing complete system]
+        ```
+
+        ### Service Architecture
+        Provide detailed breakdown of each service/component:
+        - Specific responsibilities and business logic
+        - Technology implementation approach
+        - Integration patterns and communication methods
+        - Data access and persistence strategies
+
+        ## Components and Interfaces
+
+        For each major component (create 5-8 components):
+
+        ### 1. [Component Name] Service
+        **Endpoints/APIs:**
+        - List 4-6 specific endpoints with HTTP methods and paths
+        - Include request/response formats and parameters
         
-        Include these sections:
-        - Overview
-        - Architecture (with Mermaid diagrams if applicable)
-        - Components and Interfaces
-        - Data Models
-        - Error Handling
-        - Testing Strategy
+        **Implementation Components:**
+        - List specific implementation units (functions, classes, modules, services) based on the architecture
+        - Include implementation approach and business logic
         
-        Be technical and specific, considering best practices and scalability."""
+        **Responsibilities:**
+        - Detailed list of what this component handles
+        - Integration points with other components
+
+        ## Data Models
+
+        Provide comprehensive data structures for each entity:
+        ```javascript
+        {
+          // Detailed field definitions with types, constraints, and relationships
+          // Include 8-12 fields per model with proper data types
+          // Add comments explaining business purpose of fields
+        }
+        ```
+
+        Include:
+        - Primary entities (5-8 main data models)
+        - Relationships and foreign keys
+        - Indexes and query optimization considerations
+        - Data validation rules and constraints
+
+        ## Error Handling
+        - Standardized error response formats with examples
+        - Error categorization and HTTP status codes
+        - Retry logic and circuit breaker patterns
+        - Logging and monitoring strategies
+
+        ## Testing Strategy
+        - Unit testing approach with specific frameworks
+        - Integration testing scenarios and tools
+        - End-to-end testing workflows
+        - Performance and load testing strategies
+        - Security testing requirements
+
+        ## Deployment and Configuration
+        - Infrastructure as Code approach
+        - Environment configuration management
+        - CI/CD pipeline requirements
+        - Monitoring and observability setup
+
+        ## Security Considerations
+        - Authentication and authorization mechanisms
+        - Data encryption at rest and in transit
+        - Input validation and sanitization
+        - Security headers and CORS configuration
+        - Compliance requirements (PCI, GDPR, etc.)
+
+        QUALITY STANDARDS:
+        - Use specific technology names and versions from template
+        - Include actual code patterns and architectural decisions
+        - Provide measurable performance and scalability targets
+        - Address enterprise-level concerns (monitoring, logging, security)
+        - Include specific implementation details and best practices
+        - Reference industry standards and proven patterns"""
         
         codebase_str = ""
         if codebase:
             codebase_str = f"\n\nExisting codebase context:\n{json.dumps(codebase, indent=2)}"
         
-        prompt = f"Create design document for these requirements:\n{requirements}{codebase_str}"
+        template_str = ""
+        if coding_template and coding_template.strip():
+            template_str = f"\n\nCoding Template & Standards:\n{coding_template[:1000]}{'...' if len(coding_template) > 1000 else ''}\n\nCRITICAL: Adapt the design to follow the specific architectural patterns, technologies, frameworks, coding standards, and technical approaches specified in this template. Use the template as your primary guide for all technical decisions, technology choices, and implementation approaches. If the template specifies different technologies than mentioned in examples above, use the template's specifications instead."
+        else:
+            template_str = "\n\nNote: No coding template provided. Create a flexible, technology-agnostic design that follows modern software architecture best practices. Choose appropriate technologies and patterns based on the requirements and industry standards."
+        
+        prompt = f"Create technical design document for these requirements:\n{requirements}{codebase_str}{template_str}"
         
         return self.generate_text(prompt, system_prompt)
     
