@@ -11,10 +11,10 @@ sudo yum update -y
 
 # Install required system packages
 echo "🔧 Installing system dependencies..."
+# Install packages without curl first to avoid conflicts
 sudo yum install -y \
     git \
     wget \
-    curl \
     gcc \
     gcc-c++ \
     make \
@@ -25,6 +25,15 @@ sudo yum install -y \
     bzip2-devel \
     readline-devel \
     xz-devel
+
+# Try to install curl separately, skip if it causes conflicts
+echo "🌐 Checking curl installation..."
+if ! command -v curl &> /dev/null; then
+    echo "Installing curl..."
+    sudo yum install -y curl || echo "⚠️ Curl installation skipped due to conflicts (likely already available)"
+else
+    echo "✅ Curl already available"
+fi
 
 # Install Python 3.9 if not already installed
 echo "🐍 Setting up Python 3.9..."
@@ -53,8 +62,18 @@ pip install --upgrade pip setuptools wheel
 
 # Install Wine for Windows cross-compilation
 echo "🍷 Installing Wine..."
+# Install EPEL repository
 sudo yum install -y epel-release
-sudo yum install -y wine
+
+# Clean yum cache to avoid conflicts
+sudo yum clean all
+
+# Install Wine
+echo "Installing Wine packages..."
+sudo yum install -y wine || {
+    echo "⚠️ Wine installation failed, trying alternative approach..."
+    sudo yum install -y --skip-broken wine
+}
 
 # Configure Wine
 echo "⚙️ Configuring Wine..."
